@@ -13,6 +13,7 @@ $(exec): $(objects)
 install:
 	make
 	cp ./grade.out /usr/local/bin/grade
+	make clean
 
 clean:
 	-rm *.out
