@@ -1,5 +1,5 @@
 exec = grade.out
-sources = $(wildcard *.c)
+sources = $(wildcard src/*.c) grade.c
 objects = $(sources:.c=.o)
 flags = -g
 
@@ -18,3 +18,4 @@ install:
 clean:
 	-rm *.out
 	-rm *.o
+	-rm src/*.o
