@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "headers/write.h"
+#include "headers/string.h"
 
 #define BUFFER_SIZE 4096
 
@@ -49,23 +50,6 @@ int update_Config(const char *flag, const char *arg)
                     "\t-a : the name of the file containing arguments to be passed to the programs\n"
                     "\t-t : specifying the maximum number of seconds a program can take to run. Default is 5 seconds.\n\n");
     return 5;
-}
-
-char *duplicate_string(char const *str)
-{
-    int len = strlen(str) + 1;
-
-    char *new_string = (char *)malloc(len);
-
-    if (!new_string)
-    {
-        fprintf(stderr, "Memory allocation failed.\n");
-        exit(11);
-    }
-
-    strcpy(new_string, str);
-
-    return new_string;
 }
 
 int main(int argc, char **argv)
