@@ -11,7 +11,7 @@ typedef struct
     int length;
 } StrArray;
 
-StrArray newStrArray(int initialLength);
+StrArray *newStrArray(int initialLength);
 
 int pushString(StrArray *array, const char *str);
 

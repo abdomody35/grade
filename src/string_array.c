@@ -1,12 +1,30 @@
 #include "../headers/string_array.h"
 
-StrArray newStrArray(int initialLength)
+StrArray *newStrArray(int initialLength)
 {
-    StrArray array;
+    StrArray *array = malloc(sizeof(StrArray));
 
-    array.length = initialLength;
+    if (!array)
+    {
+        perror("malloc failed");
+        return NULL;
+    }
 
-    array.elements = malloc(initialLength * sizeof(char *));
+    array->length = initialLength;
+
+    array->elements = malloc(initialLength * sizeof(char *));
+
+    if (!array->elements)
+    {
+        perror("malloc failed");
+        free(array);
+        return NULL;
+    }
+
+    for (int i = 0; i < initialLength; i++)
+    {
+        array->elements[i] = NULL;
+    }
 
     return array;
 }
@@ -24,17 +42,16 @@ int pushString(StrArray *array, const char *str)
         return -1;
     }
 
+    array->elements = newElements;
+
     char *newString = duplicate_string(str);
 
     if (!newString)
     {
         perror("strdup failed");
-        free(newElements);
         return -1;
     }
 
-    array->elements = newElements;
-    
     array->elements[array->length++] = newString;
 
     return 0;
@@ -43,9 +60,7 @@ int pushString(StrArray *array, const char *str)
 int updateString(StrArray *array, const size_t index, const char *str)
 {
     if (!array || index >= array->length || !str)
-    {
         return -1;
-    }
 
     free(array->elements[index]);
 
@@ -63,9 +78,17 @@ int updateString(StrArray *array, const size_t index, const char *str)
 int nullTerminateArray(StrArray *array)
 {
     if (!array)
+        return -1;
+
+    char **newElements = realloc(array->elements, (array->length + 1) * sizeof(char *));
+
+    if (!newElements)
     {
+        perror("realloc failed");
         return -1;
     }
+
+    array->elements = newElements;
 
     array->elements[array->length] = NULL;
 
@@ -74,15 +97,15 @@ int nullTerminateArray(StrArray *array)
 
 void freeArray(StrArray *array)
 {
+    if (!array)
+        return;
+
     for (int i = 0; i < array->length; i++)
     {
-        if (array->elements[i])
-        {
-            free(array->elements[i]);
-        }
+        free(array->elements[i]);
     }
 
     free(array->elements);
 
-    array->length = 0;
+    free(array);
 }

@@ -14,6 +14,116 @@ int EXEC_TIMEOUT = 5;
 
 char *program, *inputFile, *argFile;
 
+int handleArguments(StrArray *args)
+{
+    int arguments = open(argFile, O_RDONLY);
+
+    if (arguments == -1)
+    {
+        perror("open failed");
+        return 6;
+    }
+
+    char buffer[BUFFER_SIZE];
+
+    int size;
+
+    while ((size = read(arguments, buffer, sizeof(buffer) - 1)) > 0)
+    {
+        buffer[size] = '\0';
+
+        char *token = strtok(buffer, " \n");
+
+        while (token)
+        {
+            if (pushString(args, token) == -1)
+            {
+                perror("pushString failed");
+                return 12;
+            }
+
+            token = strtok(NULL, " \n");
+        }
+    }
+
+    close(arguments);
+
+    return 0;
+}
+
+int updateReport(int fd, int status)
+{
+    int warningAdded = 0, size;
+
+    char buffer[BUFFER_SIZE];
+
+    if (WEXITSTATUS(status))
+    {
+        if (write_all(fd, "Compilation Failed.\n\nError :\n\n") == -1)
+        {
+            perror("write failed");
+            close(fd);
+            return 7;
+        }
+
+        while ((size = read(0, buffer, sizeof(buffer - 1))) > 0)
+        {
+            buffer[size] = '\0';
+
+            if (write_all(fd, buffer) == -1)
+            {
+                perror("write failed");
+                close(fd);
+                return 7;
+            }
+        }
+
+        return -1;
+    }
+
+    if (write_all(fd, "Compiled Successfully.\n\n") == -1)
+    {
+        perror("write failed");
+        close(fd);
+        return 7;
+    }
+
+    while ((size = read(0, buffer, sizeof(buffer - 1))) > 0)
+    {
+        buffer[size] = '\0';
+
+        if (!warningAdded)
+        {
+            if (write_all(fd, "Warnings:\n\n") == -1)
+            {
+                perror("write failed");
+                close(fd);
+                return 7;
+            }
+            warningAdded = 1;
+        }
+
+        if (write_all(fd, buffer) == -1)
+        {
+            perror("write failed");
+            close(fd);
+            return 7;
+        }
+    }
+
+    if (warningAdded)
+    {
+        if (write_all(fd, "\n\n") == -1)
+        {
+            perror("write failed");
+            close(fd);
+            return 7;
+        }
+    }
+
+    return 0;
+}
+
 void print_usage()
 {
     fprintf(stderr, "Usage: %s [-i inputsfile] [-a argumetnsfile] [-t timeout].\nNote: time out is in seconds (Default 5).\n", program);
@@ -71,13 +181,13 @@ int main(int argc, char **argv)
         }
     }
 
-    int fds[2], size, pid;
+    int fds[2], size, pid, result;
 
     char buffer[BUFFER_SIZE];
 
-    StrArray args = newStrArray(1);
+    StrArray* args = newStrArray(1);
 
-    if (!args.elements)
+    if (!args->elements)
     {
         perror("malloc failed");
         return 11;
@@ -85,36 +195,15 @@ int main(int argc, char **argv)
 
     if (argFile)
     {
-        int arguments = open(argFile, O_RDONLY);
+        int error = handleArguments(args);
 
-        if (arguments == -1)
+        if (error)
         {
-            perror("open failed");
-            return 6;
+            return error;
         }
-
-        while ((size = read(arguments, buffer, sizeof(buffer) - 1)) > 0)
-        {
-            buffer[size] = '\0';
-
-            char *token = strtok(buffer, " \n");
-
-            while (token)
-            {
-                if (pushString(&args, token) == -1)
-                {
-                    perror("pushString failed");
-                    return 12;
-                }
-
-                token = strtok(NULL, " \n");
-            }
-        }
-
-        close(arguments);
     }
 
-    if (nullTerminateArray(&args) == -1)
+    if (nullTerminateArray(args) == -1)
     {
         perror("nullTerminateArray failed");
         return 13;
@@ -259,70 +348,16 @@ int main(int argc, char **argv)
 
         if (WIFEXITED(status))
         {
-            int warningAdded = 0;
+            result = updateReport(fd, status);
 
-            if (WEXITSTATUS(status))
+            if (result)
             {
-                if (write_all(fd, "Compilation Failed.\n\nError :\n\n") == -1)
+                if (result == -1)
                 {
-                    perror("write failed");
-                    close(fd);
-                    return 7;
+                    continue;
                 }
 
-                while ((size = read(0, buffer, sizeof(buffer - 1))) > 0)
-                {
-                    buffer[size] = '\0';
-
-                    if (write_all(fd, buffer) == -1)
-                    {
-                        perror("write failed");
-                        close(fd);
-                        return 7;
-                    }
-                }
-
-                continue;
-            }
-
-            if (write_all(fd, "Compiled Successfully.\n\n") == -1)
-            {
-                perror("write failed");
-                close(fd);
-                return 7;
-            }
-
-            while ((size = read(0, buffer, sizeof(buffer - 1))) > 0)
-            {
-                buffer[size] = '\0';
-
-                if (!warningAdded)
-                {
-                    if (write_all(fd, "Warnings:\n\n") == -1)
-                    {
-                        perror("write failed");
-                        close(fd);
-                        return 7;
-                    }
-                    warningAdded = 1;
-                }
-
-                if (write_all(fd, buffer) == -1)
-                {
-                    perror("write failed");
-                    close(fd);
-                    return 7;
-                }
-            }
-
-            if (warningAdded)
-            {
-                if (write_all(fd, "\n\n") == -1)
-                {
-                    perror("write failed");
-                    close(fd);
-                    return 7;
-                }
+                return result;
             }
         }
 
@@ -381,13 +416,13 @@ int main(int argc, char **argv)
                 close(0);
             }
 
-            if (updateString(&args, 0, output) == -1)
+            if (updateString(args, 0, output) == -1)
             {
                 close(fd);
                 return 12;
             }
 
-            execv(output, args.elements);
+            execv(output, args->elements);
 
             perror("execv failed");
             close(fd);
@@ -494,7 +529,7 @@ int main(int argc, char **argv)
         close(fd);
     }
 
-    freeArray(&args);
+    freeArray(args);
 
     close(fds[0]);
     return 0;
