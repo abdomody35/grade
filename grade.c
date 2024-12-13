@@ -6,7 +6,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "headers/write.h"
-#include "headers/string.h"
+#include "headers/string_array.h"
 
 #define BUFFER_SIZE 4096
 
@@ -71,9 +71,17 @@ int main(int argc, char **argv)
         }
     }
 
-    int fds[2], size, pid, argCount = 1;
+    int fds[2], size, pid;
 
-    char buffer[BUFFER_SIZE], **args = (char **)malloc(sizeof(char *));
+    char buffer[BUFFER_SIZE];
+
+    StrArray args = newStrArray(1);
+
+    if (!args.elements)
+    {
+        perror("malloc failed");
+        return 11;
+    }
 
     if (argFile)
     {
@@ -93,25 +101,11 @@ int main(int argc, char **argv)
 
             while (token)
             {
-                args = (char **)realloc(args, sizeof(char *) * (argCount + 1));
-
-                if (!args)
+                if (pushString(&args, token) == -1)
                 {
-                    perror("Memory allocation failed");
-                    close(arguments);
-                    return 11;
+                    perror("pushString failed");
+                    return 12;
                 }
-
-                args[argCount] = duplicate_string(token);
-
-                if (!args[argCount])
-                {
-                    perror("Memory allocation failed");
-                    close(arguments);
-                    return 11;
-                }
-
-                argCount++;
 
                 token = strtok(NULL, " \n");
             }
@@ -120,7 +114,11 @@ int main(int argc, char **argv)
         close(arguments);
     }
 
-    args[argCount] = NULL;
+    if (nullTerminateArray(&args) == -1)
+    {
+        perror("nullTerminateArray failed");
+        return 13;
+    }
 
     if (pipe(fds) == -1)
     {
@@ -383,11 +381,15 @@ int main(int argc, char **argv)
                 close(0);
             }
 
-            args[0] = duplicate_string(buffer);
+            if (updateString(&args, 0, output) == -1)
+            {
+                close(fd);
+                return 12;
+            }
 
-            execv(output, args);
+            execv(output, args.elements);
 
-            perror("execl failed");
+            perror("execv failed");
             close(fd);
             return 8;
         }
@@ -491,6 +493,8 @@ int main(int argc, char **argv)
         close(fds[0]);
         close(fd);
     }
+
+    freeArray(&args);
 
     close(fds[0]);
     return 0;

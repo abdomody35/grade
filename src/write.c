@@ -1,6 +1,4 @@
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
+#include "../headers/write.h"
 
 int write_all(int fd, const char *buf)
 {

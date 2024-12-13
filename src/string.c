@@ -1,6 +1,4 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+#include "../headers/string.h"
 
 char *duplicate_string(char const *str)
 {
