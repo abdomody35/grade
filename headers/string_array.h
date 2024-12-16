@@ -11,14 +11,14 @@ typedef struct
     int length;
 } StrArray;
 
-StrArray *newStrArray(int initialLength);
+StrArray *new_str_array(int initialLength);
 
-int pushString(StrArray *array, const char *str);
+int push_string(StrArray *array, const char *str);
 
-int updateString(StrArray *array, const size_t index, const char *str);
+int update_string(StrArray *array, const size_t index, const char *str);
 
-int nullTerminateArray(StrArray *arary);
+int null_terminate_array(StrArray *arary);
 
-void freeArray(StrArray *array);
+void free_array(StrArray *array);
 
 #endif

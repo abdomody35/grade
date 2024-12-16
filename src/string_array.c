@@ -1,6 +1,6 @@
 #include "../headers/string_array.h"
 
-StrArray *newStrArray(int initialLength)
+StrArray *new_str_array(int initialLength)
 {
     StrArray *array = malloc(sizeof(StrArray));
 
@@ -29,7 +29,7 @@ StrArray *newStrArray(int initialLength)
     return array;
 }
 
-int pushString(StrArray *array, const char *str)
+int push_string(StrArray *array, const char *str)
 {
     if (!array || !str)
         return -1;
@@ -57,7 +57,7 @@ int pushString(StrArray *array, const char *str)
     return 0;
 }
 
-int updateString(StrArray *array, const size_t index, const char *str)
+int update_string(StrArray *array, const size_t index, const char *str)
 {
     if (!array || index >= array->length || !str)
         return -1;
@@ -75,7 +75,7 @@ int updateString(StrArray *array, const size_t index, const char *str)
     return 0;
 }
 
-int nullTerminateArray(StrArray *array)
+int null_terminate_array(StrArray *array)
 {
     if (!array)
         return -1;
@@ -95,7 +95,7 @@ int nullTerminateArray(StrArray *array)
     return 0;
 }
 
-void freeArray(StrArray *array)
+void free_array(StrArray *array)
 {
     if (!array)
         return;
