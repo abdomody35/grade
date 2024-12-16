@@ -1,4 +1,4 @@
-#include "../headers/string.h"
+#include "../headers/string_utils.h"
 
 char *duplicate_string(char const *str)
 {
