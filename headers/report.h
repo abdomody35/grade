@@ -10,6 +10,8 @@
 #include "write.h"
 
 #define BUFFER_SIZE 4096
+#define IDENTIFIER_WIDTH 10
+#define COMPILATION_WIDTH 24
 
 extern int EXEC_TIMEOUT;
 

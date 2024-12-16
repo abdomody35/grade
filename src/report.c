@@ -20,7 +20,11 @@ ERROR initialize_report_field(int report, char *output)
 {
     if (report)
     {
-        if (write_all(report, output) == WRITE_FAIL)
+        char str[IDENTIFIER_WIDTH + 1];
+
+        snprintf(str, sizeof(str), "%-*s", IDENTIFIER_WIDTH, output);
+
+        if (write_all(report, str) == WRITE_FAIL)
         {
             perror("write failed");
             return WRITE_FAIL;
@@ -32,7 +36,7 @@ ERROR initialize_report_field(int report, char *output)
             return WRITE_FAIL;
         }
     }
-    
+
     return SUCCESS;
 }
 
@@ -120,7 +124,11 @@ ERROR write_compile_result(int fd, int status, int report)
 
     if (report)
     {
-        if (write_all(report, (warningAdded ? "Compiled With Warnings" : "Compiled With No Issues")) == WRITE_FAIL)
+        char str[COMPILATION_WIDTH + 1];
+
+        snprintf(str, sizeof(str), "%-*s", COMPILATION_WIDTH, (warningAdded ? "Compiled With Warnings" : "Compiled With No Issues"));
+
+        if (write_all(report, str) == WRITE_FAIL)
         {
             perror("write failed");
             return WRITE_FAIL;
@@ -130,7 +138,7 @@ ERROR write_compile_result(int fd, int status, int report)
     return SUCCESS;
 }
 
-int write_execute_result(int fd, int *status, int elapsed, int pid, int report)
+ERROR write_execute_result(int fd, int *status, int elapsed, int pid, int report)
 {
     if (elapsed >= EXEC_TIMEOUT)
     {
