@@ -5,14 +5,38 @@ int create_report(char *output, int length)
     char log[length];
 
     strcpy(log, output);
-    strcat(log, ".txt");
+
+    if (!strchr(output, '.'))
+    {
+        strcat(log, ".txt");
+    }
 
     int fd = creat(log, 0644);
 
     return fd;
 }
 
-ERROR write_compile_result(int fd, int status)
+ERROR initialize_report_field(int report, char *output)
+{
+    if (report)
+    {
+        if (write_all(report, output) == WRITE_FAIL)
+        {
+            perror("write failed");
+            return WRITE_FAIL;
+        }
+
+        if (write_all(report, " : ") == WRITE_FAIL)
+        {
+            perror("write failed");
+            return WRITE_FAIL;
+        }
+    }
+    
+    return SUCCESS;
+}
+
+ERROR write_compile_result(int fd, int status, int report)
 {
     bool warningAdded = false;
 
@@ -22,7 +46,7 @@ ERROR write_compile_result(int fd, int status)
 
     if (WEXITSTATUS(status))
     {
-        if (write_all(fd, "Compilation Failed.\n\nError :\n\n") == -1)
+        if (write_all(fd, "Compilation Failed.\n\nError :\n\n") == WRITE_FAIL)
         {
             perror("write failed");
             close(fd);
@@ -37,6 +61,15 @@ ERROR write_compile_result(int fd, int status)
             {
                 perror("write failed");
                 close(fd);
+                return WRITE_FAIL;
+            }
+        }
+
+        if (report)
+        {
+            if (write_all(report, "Compilation Failed\n") == WRITE_FAIL)
+            {
+                perror("write failed");
                 return WRITE_FAIL;
             }
         }
@@ -63,6 +96,7 @@ ERROR write_compile_result(int fd, int status)
                 close(fd);
                 return WRITE_FAIL;
             }
+
             warningAdded = true;
         }
 
@@ -84,10 +118,19 @@ ERROR write_compile_result(int fd, int status)
         }
     }
 
+    if (report)
+    {
+        if (write_all(report, (warningAdded ? "Compiled With Warnings" : "Compiled With No Issues")) == WRITE_FAIL)
+        {
+            perror("write failed");
+            return WRITE_FAIL;
+        }
+    }
+
     return SUCCESS;
 }
 
-int write_execute_result(int fd, int *status, int elapsed, int pid)
+int write_execute_result(int fd, int *status, int elapsed, int pid, int report)
 {
     if (elapsed >= EXEC_TIMEOUT)
     {
@@ -100,6 +143,15 @@ int write_execute_result(int fd, int *status, int elapsed, int pid)
             perror("write failed");
             return WRITE_FAIL;
         }
+
+        if (report)
+        {
+            if (write_all(report, " | Program Timed out\n") == WRITE_FAIL)
+            {
+                perror("write failed");
+                return WRITE_FAIL;
+            }
+        }
     }
     else if (!WIFEXITED(*status))
     {
@@ -107,6 +159,15 @@ int write_execute_result(int fd, int *status, int elapsed, int pid)
         {
             perror("write failed");
             return WRITE_FAIL;
+        }
+
+        if (report)
+        {
+            if (write_all(report, " | Program Crashed\n") == WRITE_FAIL)
+            {
+                perror("write failed");
+                return WRITE_FAIL;
+            }
         }
     }
     else
@@ -127,6 +188,27 @@ int write_execute_result(int fd, int *status, int elapsed, int pid)
         {
             perror("write failed");
             return WRITE_FAIL;
+        }
+
+        if (report)
+        {
+            if (write_all(report, " | Returned ") == WRITE_FAIL)
+            {
+                perror("write failed");
+                return WRITE_FAIL;
+            }
+
+            if (write_all(report, code) == WRITE_FAIL)
+            {
+                perror("write failed");
+                return WRITE_FAIL;
+            }
+
+            if (write_all(report, "\n") == WRITE_FAIL)
+            {
+                perror("write failed");
+                return WRITE_FAIL;
+            }
         }
 
         if (write_all(fd, "\n\nOutput: \n\n") == WRITE_FAIL)

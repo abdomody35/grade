@@ -15,8 +15,10 @@ extern int EXEC_TIMEOUT;
 
 ERROR create_report(char *output, int length);
 
-ERROR write_compile_result(int fd, int status);
+ERROR initialize_report_field(int report, char* output);
 
-ERROR write_execute_result(int fd, int *status, int elapsed, int pid);
+ERROR write_compile_result(int fd, int status, int report);
+
+ERROR write_execute_result(int fd, int *status, int elapsed, int pid, int report);
 
 #endif

@@ -28,6 +28,19 @@ int main(int argc, char **argv)
         return error;
     }
 
+    int report = 0;
+
+    if (reportFile)
+    {
+        report = create_report(reportFile, strlen(reportFile));
+
+        if (report == -1)
+        {
+            perror("creat failed");
+            return CREAT_FAIL;
+        }
+    }
+
     if (dup2(fds[0], 0) == -1)
     {
         perror("dup2 failed");
@@ -63,6 +76,13 @@ int main(int argc, char **argv)
             continue;
         }
 
+        error = initialize_report_field(report, output);
+
+        if (error)
+        {
+            return error;
+        }
+
         printf("grading %s...\n", filename);
 
         int status;
@@ -91,7 +111,7 @@ int main(int argc, char **argv)
 
         if (WIFEXITED(status))
         {
-            error = write_compile_result(fd, status);
+            error = write_compile_result(fd, status, report);
 
             if (error)
             {
@@ -131,7 +151,7 @@ int main(int argc, char **argv)
             return error;
         }
 
-        error = write_execute_result(fd, &status, elapsed, pid);
+        error = write_execute_result(fd, &status, elapsed, pid, report);
 
         if (error)
         {

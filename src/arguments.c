@@ -3,6 +3,7 @@
 char *program = NULL;
 char *inputFile = NULL;
 char *argFile = NULL;
+char *reportFile = NULL;
 int EXEC_TIMEOUT = 5;
 
 ERROR parse_arguments(int argc, char **argv, StrArray *args)
@@ -82,6 +83,12 @@ int update_config(const char *flag, const char *arg)
     if (!strcmp(flag, "-t"))
     {
         EXEC_TIMEOUT = atoi(arg);
+        return SUCCESS;
+    }
+
+    if (!strcmp(flag, "-r"))
+    {
+        reportFile = (char *)arg;
         return SUCCESS;
     }
 
