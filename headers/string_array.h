@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "error.h"
 #include "string.h"
 
 typedef struct
@@ -13,11 +14,11 @@ typedef struct
 
 StrArray *new_str_array(int initialLength);
 
-int push_string(StrArray *array, const char *str);
+ERROR push_string(StrArray *array, const char *str);
 
-int update_string(StrArray *array, const size_t index, const char *str);
+ERROR update_string(StrArray *array, const size_t index, const char *str);
 
-int null_terminate_array(StrArray *arary);
+ERROR null_terminate_array(StrArray *arary);
 
 void free_array(StrArray *array);
 

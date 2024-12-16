@@ -5,34 +5,38 @@ char *inputFile = NULL;
 char *argFile = NULL;
 int EXEC_TIMEOUT = 5;
 
-int handle_arguments(int argc, char **argv, StrArray *args)
+ERROR parse_arguments(int argc, char **argv, StrArray *args)
 {
     program = argv[0];
+
+    ERROR error;
 
     if (!(argc == 1 || (argc % 2 && argc < MAX_ARG_COUNT)))
     {
         print_usage();
-        return 1;
+        return INVALID_ARGUMENT_COUNT;
     }
 
     for (int i = 1; i < argc; i += 2)
     {
-        if (update_config(argv[i], argv[i + 1]))
+        error = update_config(argv[i], argv[i + 1]);
+
+        if (error)
         {
             print_usage();
-            return 5;
+            return error;
         }
     }
 
     if (!args->elements)
     {
         perror("malloc failed");
-        return 11;
+        return MEMORY_ALLOCATION_FAIL;
     }
 
     if (argFile)
     {
-        int error = update_arguments(args);
+        error = update_arguments(args);
 
         if (error)
         {
@@ -40,13 +44,14 @@ int handle_arguments(int argc, char **argv, StrArray *args)
         }
     }
 
-    if (null_terminate_array(args) == -1)
+    error = null_terminate_array(args);
+
+    if (error)
     {
-        perror("null_terminate_array failed");
-        return 13;
+        return error;
     }
 
-    return 0;
+    return SUCCESS;
 }
 
 void print_usage()
@@ -59,32 +64,33 @@ int update_config(const char *flag, const char *arg)
     if (!arg)
     {
         fprintf(stderr, "An argument must be specified after the flag.\n");
-        return 8;
+        return MISSING_ARGUMENT;
     }
 
     if (!strcmp(flag, "-i"))
     {
         inputFile = (char *)arg;
-        return 0;
+        return SUCCESS;
     }
 
     if (!strcmp(flag, "-a"))
     {
         argFile = (char *)arg;
-        return 0;
+        return SUCCESS;
     }
 
     if (!strcmp(flag, "-t"))
     {
         EXEC_TIMEOUT = atoi(arg);
-        return 0;
+        return SUCCESS;
     }
 
     fprintf(stderr, "Invalid flag. You can only use the following :\n"
                     "\t-i : the name of the file containing inputs to be passed to the programs\n"
                     "\t-a : the name of the file containing arguments to be passed to the programs\n"
                     "\t-t : specifying the maximum number of seconds a program can take to run. Default is 5 seconds.\n\n");
-    return 5;
+
+    return INVALID_FLAG;
 }
 
 int update_arguments(StrArray *args)
@@ -94,7 +100,7 @@ int update_arguments(StrArray *args)
     if (arguments == -1)
     {
         perror("open failed");
-        return 6;
+        return OPEN_FAIL;
     }
 
     char buffer[BUFFER_SIZE];
@@ -109,10 +115,11 @@ int update_arguments(StrArray *args)
 
         while (token)
         {
-            if (push_string(args, token) == -1)
+            ERROR error = push_string(args, token);
+
+            if (error)
             {
-                perror("pushString failed");
-                return 12;
+                return error;
             }
 
             token = strtok(NULL, " \n");
@@ -121,5 +128,5 @@ int update_arguments(StrArray *args)
 
     close(arguments);
 
-    return 0;
+    return SUCCESS;
 }

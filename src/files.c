@@ -1,11 +1,11 @@
 #include "../headers/files.h"
 
-int get_files(int fds[])
+ERROR get_files(int fds[])
 {
     if (pipe(fds) == -1)
     {
         perror("pipe failed");
-        return 1;
+        return PIPE_FAIL;
     }
 
     int pid = fork();
@@ -13,7 +13,7 @@ int get_files(int fds[])
     if (pid == -1)
     {
         perror("fork failed");
-        return 2;
+        return FORK_FAIL;
     }
 
     if (!pid)
@@ -24,26 +24,26 @@ int get_files(int fds[])
         {
             perror("dup2 failed");
             close(fds[1]);
-            return 3;
+            return DUP2_FAIL;
         }
 
         if (dup2(fds[1], 2) == -1)
         {
             perror("dup2 failed");
             close(fds[1]);
-            return 3;
+            return DUP2_FAIL;
         }
 
         execlp("ls", "ls", NULL);
 
         perror("execlp failed");
         close(fds[1]);
-        return 4;
+        return EXECLP_FAIL;
     }
 
     close(fds[1]);
 
     wait(NULL);
 
-    return 0;
+    return SUCCESS;
 }

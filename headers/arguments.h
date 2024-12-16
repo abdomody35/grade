@@ -3,6 +3,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include "error.h"
 #include "string_array.h"
 
 #define BUFFER_SIZE 4096
@@ -13,12 +14,12 @@ extern char *inputFile;
 extern char *argFile;
 extern int EXEC_TIMEOUT;
 
-int handle_arguments(int argc, char **argv, StrArray *args);
+ERROR parse_arguments(int argc, char **argv, StrArray *args);
 
 void print_usage();
 
-int update_config(const char *flag, const char *arg);
+ERROR update_config(const char *flag, const char *arg);
 
-int update_arguments(StrArray *args);
+ERROR update_arguments(StrArray *args);
 
 #endif

@@ -9,17 +9,14 @@ int create_report(char *output, int length)
 
     int fd = creat(log, 0644);
 
-    if (fd == -1)
-    {
-        perror("open failed");
-    }
-
     return fd;
 }
 
-int write_compile_result(int fd, int status)
+ERROR write_compile_result(int fd, int status)
 {
-    int warningAdded = 0, size;
+    bool warningAdded = false;
+
+    int size;
 
     char buffer[BUFFER_SIZE];
 
@@ -29,29 +26,29 @@ int write_compile_result(int fd, int status)
         {
             perror("write failed");
             close(fd);
-            return 7;
+            return WRITE_FAIL;
         }
 
         while ((size = read(0, buffer, BUFFER_SIZE - 1)) > 0)
         {
             buffer[size] = '\0';
 
-            if (write_all(fd, buffer) == -1)
+            if (write_all(fd, buffer) == WRITE_FAIL)
             {
                 perror("write failed");
                 close(fd);
-                return 7;
+                return WRITE_FAIL;
             }
         }
 
-        return -1;
+        return CONTINUE_FLAG;
     }
 
-    if (write_all(fd, "Compiled Successfully.\n\n") == -1)
+    if (write_all(fd, "Compiled Successfully.\n\n") == WRITE_FAIL)
     {
         perror("write failed");
         close(fd);
-        return 7;
+        return WRITE_FAIL;
     }
 
     while ((size = read(0, buffer, BUFFER_SIZE - 1)) > 0)
@@ -60,34 +57,34 @@ int write_compile_result(int fd, int status)
 
         if (!warningAdded)
         {
-            if (write_all(fd, "Warnings:\n\n") == -1)
+            if (write_all(fd, "Warnings:\n\n") == WRITE_FAIL)
             {
                 perror("write failed");
                 close(fd);
-                return 7;
+                return WRITE_FAIL;
             }
-            warningAdded = 1;
+            warningAdded = true;
         }
 
-        if (write_all(fd, buffer) == -1)
+        if (write_all(fd, buffer) == WRITE_FAIL)
         {
             perror("write failed");
             close(fd);
-            return 7;
+            return WRITE_FAIL;
         }
     }
 
     if (warningAdded)
     {
-        if (write_all(fd, "\n\n") == -1)
+        if (write_all(fd, "\n\n") == WRITE_FAIL)
         {
             perror("write failed");
             close(fd);
-            return 7;
+            return WRITE_FAIL;
         }
     }
 
-    return 0;
+    return SUCCESS;
 }
 
 int write_execute_result(int fd, int *status, int elapsed, int pid)
@@ -98,26 +95,26 @@ int write_execute_result(int fd, int *status, int elapsed, int pid)
 
         waitpid(pid, status, 0);
 
-        if (write_all(fd, "Program Timed out.\n") == -1)
+        if (write_all(fd, "Program Timed out.\n") == WRITE_FAIL)
         {
             perror("write failed");
-            return 7;
+            return WRITE_FAIL;
         }
     }
     else if (!WIFEXITED(*status))
     {
-        if (write_all(fd, "Program Crashed.\n") == -1)
+        if (write_all(fd, "Program Crashed.\n") == WRITE_FAIL)
         {
             perror("write failed");
-            return 7;
+            return WRITE_FAIL;
         }
     }
     else
     {
-        if (write_all(fd, "Return code: ") == -1)
+        if (write_all(fd, "Return code: ") == WRITE_FAIL)
         {
             perror("write failed");
-            return 7;
+            return WRITE_FAIL;
         }
 
         int returnCode = WEXITSTATUS(*status);
@@ -126,16 +123,16 @@ int write_execute_result(int fd, int *status, int elapsed, int pid)
 
         sprintf(code, "%d", returnCode);
 
-        if (write_all(fd, code) == -1)
+        if (write_all(fd, code) == WRITE_FAIL)
         {
             perror("write failed");
-            return 7;
+            return WRITE_FAIL;
         }
 
-        if (write_all(fd, "\n\nOutput: \n\n") == -1)
+        if (write_all(fd, "\n\nOutput: \n\n") == WRITE_FAIL)
         {
             perror("write failed");
-            return 7;
+            return WRITE_FAIL;
         }
 
         int size;
@@ -145,13 +142,13 @@ int write_execute_result(int fd, int *status, int elapsed, int pid)
         {
             buffer[size] = '\0';
 
-            if (write_all(fd, buffer) == -1)
+            if (write_all(fd, buffer) == WRITE_FAIL)
             {
                 perror("write failed");
-                return 7;
+                return WRITE_FAIL;
             }
         }
     }
 
-    return 0;
+    return SUCCESS;
 }

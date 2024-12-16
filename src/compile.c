@@ -1,11 +1,11 @@
 #include "../headers/compile.h"
 
-int compile_file(char *filename, char *output, int fds[], int *status)
+ERROR compile_file(char *filename, char *output, int fds[], int *status)
 {
     if (pipe(fds) == -1)
     {
         perror("pipe failed");
-        return 1;
+        return PIPE_FAIL;
     }
 
     int pid = fork();
@@ -13,7 +13,7 @@ int compile_file(char *filename, char *output, int fds[], int *status)
     if (pid == -1)
     {
         perror("fork failed");
-        return 2;
+        return FORK_FAIL;
     }
 
     if (!pid)
@@ -24,19 +24,19 @@ int compile_file(char *filename, char *output, int fds[], int *status)
         {
             perror("dup2 failed");
             close(fds[1]);
-            return 3;
+            return DUP2_FAIL;
         }
 
         execlp("gcc", "gcc", "-o", output, filename, NULL);
 
-        perror("Compiler failed");
+        perror("execlp failed");
         close(fds[1]);
-        return 5;
+        return EXECLP_FAIL;
     }
 
     close(fds[1]);
 
     wait(status);
 
-    return 0;
+    return SUCCESS;
 }

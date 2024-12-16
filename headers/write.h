@@ -4,7 +4,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "error.h"
 
-int write_all(int fd, const char *buf);
+ERROR write_all(int fd, const char *buf);
 
 #endif

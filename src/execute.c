@@ -1,11 +1,11 @@
 #include "../headers/execute.h"
 
-int execute_program(int fds[], char *output, StrArray *args, int *pid)
+ERROR execute_program(int fds[], char *output, StrArray *args, int *pid)
 {
     if (pipe(fds) == -1)
     {
         perror("pipe failed");
-        return 1;
+        return PIPE_FAIL;
     }
 
     *pid = fork();
@@ -13,7 +13,7 @@ int execute_program(int fds[], char *output, StrArray *args, int *pid)
     if (*pid == -1)
     {
         perror("fork failed");
-        return 2;
+        return FORK_FAIL;
     }
 
     if (!(*pid))
@@ -23,13 +23,13 @@ int execute_program(int fds[], char *output, StrArray *args, int *pid)
         if (dup2(fds[1], 1) == -1)
         {
             perror("dup2 failed");
-            return 3;
+            return DUP2_FAIL;
         }
 
         if (dup2(fds[1], 2) == -1)
         {
             perror("dup2 failed");
-            return 3;
+            return DUP2_FAIL;
         }
 
         if (inputFile)
@@ -39,13 +39,13 @@ int execute_program(int fds[], char *output, StrArray *args, int *pid)
             if (input == -1)
             {
                 perror("open failed");
-                return 9;
+                return OPEN_FAIL;
             }
 
             if (dup2(input, 0) == -1)
             {
                 perror("dup2 failed");
-                return 3;
+                return DUP2_FAIL;
             }
         }
         else
@@ -53,31 +53,34 @@ int execute_program(int fds[], char *output, StrArray *args, int *pid)
             close(0);
         }
 
-        if (update_string(args, 0, output) == -1)
+        ERROR error = update_string(args, 0, output);
+
+        if (error)
         {
-            return 12;
+            return error;
         }
 
         execv(output, args->elements);
 
         perror("execv failed");
-        return 8;
+        return EXECV_FAIL;
     }
 
     close(fds[1]);
 
-    return 0;
+    return SUCCESS;
 }
 
-int update_elapsed(int *elapsed, int *status, int pid)
+ERROR update_elapsed(int *elapsed, int *status, int pid)
 {
     while (*elapsed < EXEC_TIMEOUT)
     {
         int error = waitpid(pid, status, WNOHANG);
+        
         if (error == -1)
         {
             perror("waitpid failed");
-            return 7;
+            return WAITPID_FAIL;
         }
         else if (error == 0)
         {
@@ -91,5 +94,5 @@ int update_elapsed(int *elapsed, int *status, int pid)
         }
     }
 
-    return 0;
+    return SUCCESS;
 }

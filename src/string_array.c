@@ -29,17 +29,17 @@ StrArray *new_str_array(int initialLength)
     return array;
 }
 
-int push_string(StrArray *array, const char *str)
+ERROR push_string(StrArray *array, const char *str)
 {
     if (!array || !str)
-        return -1;
+        return NULL_POINTER_FAIL;
 
     char **newElements = realloc(array->elements, (array->length + 1) * sizeof(char *));
 
     if (!newElements)
     {
         perror("realloc failed");
-        return -1;
+        return MEMORY_ALLOCATION_FAIL;
     }
 
     array->elements = newElements;
@@ -49,18 +49,18 @@ int push_string(StrArray *array, const char *str)
     if (!newString)
     {
         perror("strdup failed");
-        return -1;
+        return STRING_DUPLICATE_FAIL;
     }
 
     array->elements[array->length++] = newString;
 
-    return 0;
+    return SUCCESS;
 }
 
-int update_string(StrArray *array, const size_t index, const char *str)
+ERROR update_string(StrArray *array, const size_t index, const char *str)
 {
     if (!array || index >= array->length || !str)
-        return -1;
+        return NULL_POINTER_FAIL;
 
     free(array->elements[index]);
 
@@ -69,30 +69,30 @@ int update_string(StrArray *array, const size_t index, const char *str)
     if (!array->elements[index])
     {
         perror("strdup failed");
-        return -1;
+        return STRING_DUPLICATE_FAIL;
     }
 
-    return 0;
+    return SUCCESS;
 }
 
 int null_terminate_array(StrArray *array)
 {
     if (!array)
-        return -1;
+        return NULL_POINTER_FAIL;
 
     char **newElements = realloc(array->elements, (array->length + 1) * sizeof(char *));
 
     if (!newElements)
     {
         perror("realloc failed");
-        return -1;
+        return MEMORY_ALLOCATION_FAIL;
     }
 
     array->elements = newElements;
 
     array->elements[array->length] = NULL;
 
-    return 0;
+    return SUCCESS;
 }
 
 void free_array(StrArray *array)

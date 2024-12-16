@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "error.h"
 
-int compile_file(char *filename, char *output, int fds[], int *status);
+ERROR compile_file(char *filename, char *output, int fds[], int *status);
 
 #endif
