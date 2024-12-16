@@ -12,11 +12,13 @@ int main(int argc, char **argv)
 {
     StrArray *args = new_str_array(1);
 
-    int fds[2], size, pid, error;
+    int fds[2], size, pid;
+
+    ERROR error;
 
     char buffer[BUFFER_SIZE];
 
-    error = handle_arguments(argc, argv, args);
+    error = parse_arguments(argc, argv, args);
 
     if (error)
     {
@@ -34,7 +36,7 @@ int main(int argc, char **argv)
     {
         perror("dup2 failed");
         close(fds[0]);
-        return 3;
+        return DUP2_FAIL;
     }
 
     while (1)
@@ -55,8 +57,6 @@ int main(int argc, char **argv)
             continue;
         }
 
-        printf("grading %s...\n", filename);
-
         char output[length];
 
         strcpy(output, filename);
@@ -66,6 +66,8 @@ int main(int argc, char **argv)
         {
             continue;
         }
+
+        printf("grading %s...\n", filename);
 
         int status;
 
@@ -80,14 +82,15 @@ int main(int argc, char **argv)
         {
             perror("dup2 failed");
             close(fds[0]);
-            return 3;
+            return DUP2_FAIL;
         }
 
         int fd = create_report(output, length);
 
         if (fd == -1)
         {
-            return 6;
+            perror("creat failed");
+            return CREAT_FAIL;
         }
 
         if (WIFEXITED(status))
@@ -96,7 +99,7 @@ int main(int argc, char **argv)
 
             if (error)
             {
-                if (error == -1)
+                if (error == CONTINUE_FLAG)
                 {
                     continue;
                 }
@@ -117,7 +120,7 @@ int main(int argc, char **argv)
         {
             perror("dup2 failed");
             close(fds[0]);
-            return 3;
+            return DUP2_FAIL;
         }
 
         int elapsed = 0;
