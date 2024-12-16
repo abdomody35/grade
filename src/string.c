@@ -1,6 +1,4 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+#include "../headers/string.h"
 
 char *duplicate_string(char const *str)
 {
@@ -11,7 +9,7 @@ char *duplicate_string(char const *str)
     if (!new_string)
     {
         fprintf(stderr, "Memory allocation failed.\n");
-        exit(11);
+        exit(MEMORY_ALLOCATION_FAIL);
     }
 
     strcpy(new_string, str);

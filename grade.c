@@ -1,175 +1,42 @@
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/select.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#include "headers/arguments.h"
+#include "headers/compile.h"
+#include "headers/execute.h"
+#include "headers/files.h"
+#include "headers/report.h"
+#include "headers/string_array.h"
 #include "headers/write.h"
-#include "headers/string.h"
 
 #define BUFFER_SIZE 4096
 
-int EXEC_TIMEOUT = 5;
-
-char *program, *inputFile, *argFile;
-
-void print_usage()
-{
-    fprintf(stderr, "Usage: %s [-i inputsfile] [-a argumetnsfile] [-t timeout].\nNote: time out is in seconds (Default 5).\n", program);
-}
-
-int update_Config(const char *flag, const char *arg)
-{
-    if (!arg)
-    {
-        fprintf(stderr, "An argument must be specified after the flag.\n");
-        return 8;
-    }
-
-    if (!strcmp(flag, "-i"))
-    {
-        inputFile = arg;
-        return 0;
-    }
-
-    if (!strcmp(flag, "-a"))
-    {
-        argFile = arg;
-        return 0;
-    }
-
-    if (!strcmp(flag, "-t"))
-    {
-        EXEC_TIMEOUT = atoi(arg);
-        return 0;
-    }
-
-    fprintf(stderr, "Invalid flag. You can only use the following :\n"
-                    "\t-i : the name of the file containing inputs to be passed to the programs\n"
-                    "\t-a : the name of the file containing arguments to be passed to the programs\n"
-                    "\t-t : specifying the maximum number of seconds a program can take to run. Default is 5 seconds.\n\n");
-    return 5;
-}
-
 int main(int argc, char **argv)
 {
-    program = argv[0];
+    StrArray *args = new_str_array(1);
 
-    if (!(argc == 1 || (argc % 2 && argc < 8)))
+    int fds[2], size, pid;
+
+    ERROR error;
+
+    char buffer[BUFFER_SIZE];
+
+    error = parse_arguments(argc, argv, args);
+
+    if (error)
     {
-        print_usage();
-        return 1;
+        return error;
     }
 
-    for (int i = 1; i < argc; i += 2)
+    error = get_files(fds);
+
+    if (error)
     {
-        if (update_Config(argv[i], argv[i + 1]))
-        {
-            print_usage();
-            return 5;
-        }
+        return error;
     }
-
-    int fds[2], size, pid, argCount = 1;
-
-    char buffer[BUFFER_SIZE], **args = (char **)malloc(sizeof(char *));
-
-    if (argFile)
-    {
-        int arguments = open(argFile, O_RDONLY);
-
-        if (arguments == -1)
-        {
-            perror("open failed");
-            return 6;
-        }
-
-        while ((size = read(arguments, buffer, sizeof(buffer) - 1)) > 0)
-        {
-            buffer[size] = '\0';
-
-            char *token = strtok(buffer, " \n");
-
-            while (token)
-            {
-                args = (char **)realloc(args, sizeof(char *) * (argCount + 1));
-
-                if (!args)
-                {
-                    perror("Memory allocation failed");
-                    close(arguments);
-                    return 11;
-                }
-
-                args[argCount] = duplicate_string(token);
-
-                if (!args[argCount])
-                {
-                    perror("Memory allocation failed");
-                    close(arguments);
-                    return 11;
-                }
-
-                argCount++;
-
-                token = strtok(NULL, " \n");
-            }
-        }
-
-        close(arguments);
-    }
-
-    args[argCount] = NULL;
-
-    if (pipe(fds) == -1)
-    {
-        perror("pipe failed");
-        return 1;
-    }
-
-    pid = fork();
-
-    if (pid == -1)
-    {
-        perror("fork failed");
-        return 2;
-    }
-
-    if (!pid)
-    {
-        close(fds[0]);
-
-        if (dup2(fds[1], 1) == -1)
-        {
-            perror("dup2 failed");
-            close(fds[1]);
-            return 3;
-        }
-
-        if (dup2(fds[1], 2) == -1)
-        {
-            perror("dup2 failed");
-            close(fds[1]);
-            return 3;
-        }
-
-        execlp("ls", "ls", NULL);
-
-        perror("execlp failed");
-        close(fds[1]);
-        return 4;
-    }
-
-    close(fds[1]);
-
-    wait(NULL);
 
     if (dup2(fds[0], 0) == -1)
     {
         perror("dup2 failed");
         close(fds[0]);
-        return 3;
+        return DUP2_FAIL;
     }
 
     while (1)
@@ -190,8 +57,6 @@ int main(int argc, char **argv)
             continue;
         }
 
-        printf("grading %s...\n", filename);
-
         char output[length];
 
         strcpy(output, filename);
@@ -202,295 +67,85 @@ int main(int argc, char **argv)
             continue;
         }
 
-        if (pipe(fds) == -1)
+        printf("grading %s...\n", filename);
+
+        int status;
+
+        error = compile_file(filename, output, fds, &status);
+
+        if (error)
         {
-            perror("pipe failed");
-            return 1;
+            return error;
         }
-
-        int pid = fork();
-
-        if (pid == -1)
-        {
-            perror("fork failed");
-            return 2;
-        }
-
-        if (!pid)
-        {
-            close(fds[0]);
-
-            if (dup2(fds[1], 2) == -1)
-            {
-                perror("dup2 failed");
-                close(fds[1]);
-                return 3;
-            }
-
-            execlp("gcc", "gcc", "-o", output, filename, NULL);
-
-            perror("Compiler failed");
-            close(fds[1]);
-            return 5;
-        }
-
-        close(fds[1]);
 
         if (dup2(fds[0], 0) == -1)
         {
             perror("dup2 failed");
             close(fds[0]);
-            return 3;
+            return DUP2_FAIL;
         }
 
-        int status;
-        wait(&status);
-
-        char log[length];
-
-        strcpy(log, output);
-        strcat(log, ".txt");
-
-        int fd = creat(log, 0644);
+        int fd = create_report(output, length);
 
         if (fd == -1)
         {
-            perror("open failed");
-            return 6;
+            perror("creat failed");
+            return CREAT_FAIL;
         }
 
         if (WIFEXITED(status))
         {
-            int warningAdded = 0;
+            error = write_compile_result(fd, status);
 
-            if (WEXITSTATUS(status))
+            if (error)
             {
-                if (write_all(fd, "Compilation Failed.\n\nError :\n\n") == -1)
+                if (error == CONTINUE_FLAG)
                 {
-                    perror("write failed");
-                    close(fd);
-                    return 7;
+                    continue;
                 }
 
-                while ((size = read(0, buffer, sizeof(buffer - 1))) > 0)
-                {
-                    buffer[size] = '\0';
-
-                    if (write_all(fd, buffer) == -1)
-                    {
-                        perror("write failed");
-                        close(fd);
-                        return 7;
-                    }
-                }
-
-                continue;
-            }
-
-            if (write_all(fd, "Compiled Successfully.\n\n") == -1)
-            {
-                perror("write failed");
-                close(fd);
-                return 7;
-            }
-
-            while ((size = read(0, buffer, sizeof(buffer - 1))) > 0)
-            {
-                buffer[size] = '\0';
-
-                if (!warningAdded)
-                {
-                    if (write_all(fd, "Warnings:\n\n") == -1)
-                    {
-                        perror("write failed");
-                        close(fd);
-                        return 7;
-                    }
-                    warningAdded = 1;
-                }
-
-                if (write_all(fd, buffer) == -1)
-                {
-                    perror("write failed");
-                    close(fd);
-                    return 7;
-                }
-            }
-
-            if (warningAdded)
-            {
-                if (write_all(fd, "\n\n") == -1)
-                {
-                    perror("write failed");
-                    close(fd);
-                    return 7;
-                }
+                return error;
             }
         }
 
-        if (pipe(fds) == -1)
+        error = execute_program(fds, output, args, &pid);
+
+        if (error)
         {
-            perror("pipe failed");
-            return 1;
-        }
-
-        pid = fork();
-
-        if (pid == -1)
-        {
-            perror("fork failed");
             close(fd);
-            return 2;
+            return error;
         }
-
-        if (!pid)
-        {
-            close(fds[0]);
-
-            if (dup2(fds[1], 1) == -1)
-            {
-                perror("dup2 failed");
-                return 3;
-            }
-
-            if (dup2(fds[1], 2) == -1)
-            {
-                perror("dup2 failed");
-                return 3;
-            }
-
-            close(fd);
-
-            if (inputFile)
-            {
-                int input = open(inputFile, O_RDONLY);
-
-                if (input == -1)
-                {
-                    perror("open failed");
-                    close(fd);
-                    return 9;
-                }
-
-                if (dup2(input, 0) == -1)
-                {
-                    perror("dup2 failed");
-                    return 3;
-                }
-            }
-            else
-            {
-                close(0);
-            }
-
-            args[0] = duplicate_string(buffer);
-
-            execv(output, args);
-
-            perror("execl failed");
-            close(fd);
-            return 8;
-        }
-
-        close(fds[1]);
 
         if (dup2(fds[0], 0) == -1)
         {
             perror("dup2 failed");
             close(fds[0]);
-            return 3;
+            return DUP2_FAIL;
         }
 
         int elapsed = 0;
 
-        while (elapsed < EXEC_TIMEOUT)
+        error = update_elapsed(&elapsed, &status, pid);
+
+        if (error)
         {
-            int result = waitpid(pid, &status, WNOHANG);
-            if (result == -1)
-            {
-                perror("waitpid failed");
-                close(fd);
-                return 7;
-            }
-            else if (result == 0)
-            {
-                sleep(1);
-                elapsed++;
-                continue;
-            }
-            else
-            {
-                break;
-            }
+            close(fd);
+            return error;
         }
 
-        if (elapsed >= EXEC_TIMEOUT)
+        error = write_execute_result(fd, &status, elapsed, pid);
+
+        if (error)
         {
-            kill(pid, 9);
-
-            waitpid(pid, &status, 0);
-
-            if (write_all(fd, "Program Timed out.\n") == -1)
-            {
-                perror("write failed");
-                close(fd);
-                return 7;
-            }
-        }
-        else if (!WIFEXITED(status))
-        {
-            if (write_all(fd, "Program Crashed.\n") == -1)
-            {
-                perror("write failed");
-                close(fd);
-                return 7;
-            }
-        }
-        else
-        {
-            if (write_all(fd, "Return code: ") == -1)
-            {
-                perror("write failed");
-                close(fd);
-                return 7;
-            }
-
-            int returnCode = WEXITSTATUS(status);
-
-            char code[4];
-
-            sprintf(code, "%d", returnCode);
-
-            if (write_all(fd, code) == -1)
-            {
-                perror("write failed");
-                close(fd);
-                return 7;
-            }
-
-            if (write_all(fd, "\n\nOutput: \n\n") == -1)
-            {
-                perror("write failed");
-                close(fd);
-                return 7;
-            }
-
-            while ((size = read(0, buffer, sizeof(buffer) - 1)) > 0)
-            {
-                buffer[size] = '\0';
-
-                if (write_all(fd, buffer) == -1)
-                {
-                    perror("write failed");
-                    close(fd);
-                    return 7;
-                }
-            }
+            close(fd);
+            return error;
         }
 
         close(fds[0]);
         close(fd);
     }
+
+    free_array(args);
 
     close(fds[0]);
     return 0;

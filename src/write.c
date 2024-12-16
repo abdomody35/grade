@@ -1,8 +1,6 @@
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
+#include "../headers/write.h"
 
-int write_all(int fd, const char *buf)
+ERROR write_all(int fd, const char *buf)
 {
     int count = strlen(buf), written;
 
@@ -15,8 +13,8 @@ int write_all(int fd, const char *buf)
     if (written == -1)
     {
         perror("write failed");
-        return -1;
+        return WRITE_FAIL;
     }
 
-    return 0;
+    return SUCCESS;
 }
