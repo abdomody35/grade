@@ -6,17 +6,13 @@
 #include "headers/string_array.h"
 #include "headers/write.h"
 
-#define BUFFER_SIZE 4096
-
 int main(int argc, char **argv)
 {
     StrArray *args = new_str_array(1);
 
-    int fds[2], size, pid;
+    int fds[2];
 
     ERROR error;
-
-    char buffer[BUFFER_SIZE];
 
     error = parse_arguments(argc, argv, args);
 
@@ -62,7 +58,7 @@ int main(int argc, char **argv)
         strcpy(output, filename);
         output[length - 2] = '\0';
 
-        if (strstr(argv[0], output))
+        if (strstr(program, output))
         {
             continue;
         }
@@ -107,6 +103,8 @@ int main(int argc, char **argv)
                 return error;
             }
         }
+
+        int pid;
 
         error = execute_program(fds, output, args, &pid);
 
