@@ -4,6 +4,7 @@ char *program = NULL;
 char *inputFile = NULL;
 char *argFile = NULL;
 char *reportFile = NULL;
+char *outputFile = NULL;
 int EXEC_TIMEOUT = 5;
 
 ERROR parse_arguments(int argc, char **argv, StrArray *args)
@@ -57,7 +58,7 @@ ERROR parse_arguments(int argc, char **argv, StrArray *args)
 
 void print_usage()
 {
-    fprintf(stderr, "Usage: %s [-i inputsfile] [-a argumetnsfile] [-t timeout].\nNote: time out is in seconds (Default 5).\n", program);
+    fprintf(stderr, "Usage: %s [-i inputsfile] [-a argumetnsfile] [-t timeout].\nNote: time out is in seconds. Minimum 5 (Default).\n", program);
 }
 
 int update_config(const char *flag, const char *arg)
@@ -83,6 +84,13 @@ int update_config(const char *flag, const char *arg)
     if (!strcmp(flag, "-t"))
     {
         EXEC_TIMEOUT = atoi(arg);
+
+        if (EXEC_TIMEOUT < 5)
+        {
+            fprintf(stderr, "Time out must be greater than 4 seconds.\n");
+            return INVALID_ARGUMENT;
+        }
+
         return SUCCESS;
     }
 
@@ -92,10 +100,18 @@ int update_config(const char *flag, const char *arg)
         return SUCCESS;
     }
 
+    if (!strcmp(flag, "-o"))
+    {
+        outputFile = (char *)arg;
+        return SUCCESS;
+    }
+
     fprintf(stderr, "Invalid flag. You can only use the following :\n"
-                    "\t-i : the name of the file containing inputs to be passed to the programs\n"
-                    "\t-a : the name of the file containing arguments to be passed to the programs\n"
-                    "\t-t : specifying the maximum number of seconds a program can take to run. Default is 5 seconds.\n\n");
+                    "\t-i : the name of the file containing inputs to be passed to the programs.\n"
+                    "\t-a : the name of the file containing arguments to be passed to the programs.\n"
+                    "\t-o : the name of the file containing correct output to be compared with each program's output.\n"
+                    "\t-r : the name of the report file.\n"
+                    "\t-t : specifying the maximum number of seconds a program can take to run. Minimum is 5 seconds (Default).\n\n");
 
     return INVALID_FLAG;
 }

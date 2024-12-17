@@ -20,13 +20,13 @@ ERROR execute_program(int fds[], char *output, StrArray *args, int *pid)
     {
         close(fds[0]);
 
-        if (dup2(fds[1], 1) == -1)
+        if (dup2(fds[1], STDOUT_FILENO) == -1)
         {
             perror("dup2 failed");
             return DUP2_FAIL;
         }
 
-        if (dup2(fds[1], 2) == -1)
+        if (dup2(fds[1], STDERR_FILENO) == -1)
         {
             perror("dup2 failed");
             return DUP2_FAIL;
@@ -42,7 +42,7 @@ ERROR execute_program(int fds[], char *output, StrArray *args, int *pid)
                 return OPEN_FAIL;
             }
 
-            if (dup2(input, 0) == -1)
+            if (dup2(input, STDIN_FILENO) == -1)
             {
                 perror("dup2 failed");
                 return DUP2_FAIL;
@@ -50,7 +50,7 @@ ERROR execute_program(int fds[], char *output, StrArray *args, int *pid)
         }
         else
         {
-            close(0);
+            close(STDIN_FILENO);
         }
 
         ERROR error = update_string(args, 0, output);
@@ -75,23 +75,21 @@ ERROR update_elapsed(int *elapsed, int *status, int pid)
 {
     while (*elapsed < EXEC_TIMEOUT)
     {
-        int error = waitpid(pid, status, WNOHANG);
-        
-        if (error == -1)
+        int result = waitpid(pid, status, WNOHANG);
+
+        if (result == -1)
         {
             perror("waitpid failed");
             return WAITPID_FAIL;
         }
-        else if (error == 0)
+        else if (result == 0)
         {
             sleep(1);
             *elapsed++;
             continue;
         }
-        else
-        {
-            break;
-        }
+
+        break;
     }
 
     return SUCCESS;

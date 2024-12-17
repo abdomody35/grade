@@ -4,12 +4,7 @@ int create_report(char *output, int length)
 {
     char log[length];
 
-    strcpy(log, output);
-
-    if (!strchr(output, '.'))
-    {
-        strcat(log, ".txt");
-    }
+    snprintf(log, length + 4, "%s%s", output, strchr(output, '.') ? "" : ".txt");
 
     int fd = creat(log, 0644);
 
@@ -18,107 +13,83 @@ int create_report(char *output, int length)
 
 ERROR initialize_report_field(int report, char *output)
 {
-    if (report)
+    if (!report)
     {
-        char str[IDENTIFIER_WIDTH + 1];
-
-        snprintf(str, sizeof(str), "%-*s", IDENTIFIER_WIDTH, output);
-
-        if (write_all(report, str) == WRITE_FAIL)
-        {
-            perror("write failed");
-            return WRITE_FAIL;
-        }
-
-        if (write_all(report, " : ") == WRITE_FAIL)
-        {
-            perror("write failed");
-            return WRITE_FAIL;
-        }
+        return SUCCESS;
     }
 
-    return SUCCESS;
+    char str[IDENTIFIER_WIDTH + 4];
+
+    snprintf(str, sizeof(str), "%-*s : ", IDENTIFIER_WIDTH, output);
+
+    return write_all(report, str);
 }
 
 ERROR write_compile_result(int fd, int status, int report)
 {
-    bool warningAdded = false;
-
-    int size;
-
-    char buffer[BUFFER_SIZE];
+    bool warnings = false;
 
     if (WEXITSTATUS(status))
     {
-        if (write_all(fd, "Compilation Failed.\n\nError :\n\n") == WRITE_FAIL)
+        ERROR error = write_to_report(fd, report, "Compilation Failed.\n\nError :\n\n", "Compilation Failed\n");
+
+        if (error)
         {
-            perror("write failed");
-            close(fd);
-            return WRITE_FAIL;
+            return error;
         }
 
-        while ((size = read(0, buffer, BUFFER_SIZE - 1)) > 0)
-        {
-            buffer[size] = '\0';
+        error = read_and_write(STDIN_FILENO, fd);
 
-            if (write_all(fd, buffer) == WRITE_FAIL)
-            {
-                perror("write failed");
-                close(fd);
-                return WRITE_FAIL;
-            }
-        }
-
-        if (report)
+        if (error)
         {
-            if (write_all(report, "Compilation Failed\n") == WRITE_FAIL)
-            {
-                perror("write failed");
-                return WRITE_FAIL;
-            }
+            return error;
         }
 
         return CONTINUE_FLAG;
     }
 
-    if (write_all(fd, "Compiled Successfully.\n\n") == WRITE_FAIL)
+    ERROR error = write_all(fd, "Compiled Successfully.\n\n");
+
+    if (error)
     {
-        perror("write failed");
-        close(fd);
-        return WRITE_FAIL;
+        return error;
     }
 
-    while ((size = read(0, buffer, BUFFER_SIZE - 1)) > 0)
+    int size;
+
+    char buffer[BUFFER_SIZE];
+
+    while ((size = read(STDIN_FILENO, buffer, BUFFER_SIZE - 1)) > 0)
     {
         buffer[size] = '\0';
 
-        if (!warningAdded)
+        if (!warnings)
         {
-            if (write_all(fd, "Warnings:\n\n") == WRITE_FAIL)
+            error = write_all(fd, "Warnings:\n\n");
+
+            if (error)
             {
-                perror("write failed");
-                close(fd);
-                return WRITE_FAIL;
+                return error;
             }
 
-            warningAdded = true;
+            warnings = true;
         }
 
-        if (write_all(fd, buffer) == WRITE_FAIL)
+        error = write_all(fd, buffer);
+
+        if (error)
         {
-            perror("write failed");
-            close(fd);
-            return WRITE_FAIL;
+            return error;
         }
     }
 
-    if (warningAdded)
+    if (warnings)
     {
-        if (write_all(fd, "\n\n") == WRITE_FAIL)
+        error = write_all(fd, "\n\n");
+
+        if (error)
         {
-            perror("write failed");
-            close(fd);
-            return WRITE_FAIL;
+            return error;
         }
     }
 
@@ -126,12 +97,13 @@ ERROR write_compile_result(int fd, int status, int report)
     {
         char str[COMPILATION_WIDTH + 1];
 
-        snprintf(str, sizeof(str), "%-*s", COMPILATION_WIDTH, (warningAdded ? "Compiled With Warnings" : "Compiled With No Issues"));
+        snprintf(str, sizeof(str), "%-*s", COMPILATION_WIDTH, (warnings ? "Compiled With Warnings" : "Compiled With No Issues"));
 
-        if (write_all(report, str) == WRITE_FAIL)
+        error = write_all(report, str);
+
+        if (error)
         {
-            perror("write failed");
-            return WRITE_FAIL;
+            return error;
         }
     }
 
@@ -142,102 +114,142 @@ ERROR write_execute_result(int fd, int *status, int elapsed, int pid, int report
 {
     if (elapsed >= EXEC_TIMEOUT)
     {
-        kill(pid, 9);
+        kill(pid, SIG_KILL);
 
         waitpid(pid, status, 0);
 
-        if (write_all(fd, "Program Timed out.\n") == WRITE_FAIL)
-        {
-            perror("write failed");
-            return WRITE_FAIL;
-        }
-
-        if (report)
-        {
-            if (write_all(report, " | Program Timed out\n") == WRITE_FAIL)
-            {
-                perror("write failed");
-                return WRITE_FAIL;
-            }
-        }
+        return write_timeout(fd, report);
     }
-    else if (!WIFEXITED(*status))
-    {
-        if (write_all(fd, "Program Crashed.\n") == WRITE_FAIL)
-        {
-            perror("write failed");
-            return WRITE_FAIL;
-        }
 
-        if (report)
-        {
-            if (write_all(report, " | Program Crashed\n") == WRITE_FAIL)
-            {
-                perror("write failed");
-                return WRITE_FAIL;
-            }
-        }
+    if (!WIFEXITED(*status))
+    {
+        return write_crash(fd, report);
     }
-    else
+
+    ERROR error = write_return_code(fd, report, status);
+
+    if (error)
     {
-        if (write_all(fd, "Return code: ") == WRITE_FAIL)
-        {
-            perror("write failed");
-            return WRITE_FAIL;
-        }
+        return error;
+    }
 
-        int returnCode = WEXITSTATUS(*status);
+    char buffer[BUFFER_SIZE] = {};
+    char actualOutput[BUFFER_SIZE] = {};
 
-        char code[4];
+    read_output(buffer, actualOutput);
 
-        sprintf(code, "%d", returnCode);
+    error = write_output_result(fd, report, actualOutput);
 
-        if (write_all(fd, code) == WRITE_FAIL)
-        {
-            perror("write failed");
-            return WRITE_FAIL;
-        }
+    if (error)
+    {
+        return error;
+    }
 
-        if (report)
-        {
-            if (write_all(report, " | Returned ") == WRITE_FAIL)
-            {
-                perror("write failed");
-                return WRITE_FAIL;
-            }
+    error = write_output(fd, buffer);
 
-            if (write_all(report, code) == WRITE_FAIL)
-            {
-                perror("write failed");
-                return WRITE_FAIL;
-            }
+    if (error)
+    {
+        return error;
+    }
 
-            if (write_all(report, "\n") == WRITE_FAIL)
-            {
-                perror("write failed");
-                return WRITE_FAIL;
-            }
-        }
+    return SUCCESS;
+}
 
-        if (write_all(fd, "\n\nOutput: \n\n") == WRITE_FAIL)
-        {
-            perror("write failed");
-            return WRITE_FAIL;
-        }
+ERROR write_timeout(int fd, int report)
+{
+    return write_to_report(fd, report, "Program Timed out.\n", " | Program Timed out\n");
+}
 
-        int size;
-        char buffer[BUFFER_SIZE];
+ERROR write_crash(int fd, int report)
+{
+    return write_to_report(fd, report, "Program Crashed.\n", " | Program Crashed\n");
+}
 
-        while ((size = read(0, buffer, BUFFER_SIZE - 1)) > 0)
-        {
-            buffer[size] = '\0';
+ERROR write_return_code(int fd, int report, int *status)
+{
+    int returnCode = WEXITSTATUS(*status);
 
-            if (write_all(fd, buffer) == WRITE_FAIL)
-            {
-                perror("write failed");
-                return WRITE_FAIL;
-            }
-        }
+    char str1[RETURN_WIDTH + RETURN_MESSAGE_WIDTH], str2[RETURN_WIDTH + RETURN_MESSAGE_WIDTH];
+
+    snprintf(str1, sizeof(str1), "Return code: %d", returnCode);
+
+    snprintf(str2, sizeof(str2), " | Returned %-*d", RETURN_WIDTH, returnCode);
+
+    return write_to_report(fd, report, str1, str2);
+}
+
+void read_output(char *buffer, char *actualOutput)
+{
+    int size, actualOutputSize = 0;
+
+    while ((size = read(STDIN_FILENO, buffer, BUFFER_SIZE - 1)) > 0)
+    {
+        buffer[size] = '\0';
+
+        strncpy(actualOutput + actualOutputSize, buffer, size);
+
+        actualOutputSize += size;
+    }
+
+    actualOutput[actualOutputSize] = '\0';
+}
+
+ERROR write_output_result(int fd, int report, char *actualOutput)
+{
+    if (!outputFile)
+    {
+        return write_to_report(fd, report, "", "\n");
+    }
+
+    char expectedOutput[BUFFER_SIZE];
+    int expectedOutputSize = 0;
+
+    int expectedFd = open(outputFile, O_RDONLY);
+
+    if (expectedFd == -1)
+    {
+        perror("open failed");
+        return OPEN_FAIL;
+    }
+
+    int size;
+
+    while ((size = read(expectedFd, expectedOutput + expectedOutputSize, BUFFER_SIZE - 1 - expectedOutputSize)) > 0)
+    {
+        expectedOutputSize += size;
+    }
+
+    expectedOutput[expectedOutputSize] = '\0';
+
+    close(expectedFd);
+
+    char *cleanActualOutput = trim(actualOutput);
+    to_lowercase(cleanActualOutput);
+
+    char *cleanExpectedOutput = trim(expectedOutput);
+    to_lowercase(cleanExpectedOutput);
+
+    bool outputMatches = !strcmp(cleanActualOutput, cleanExpectedOutput);
+
+    return write_to_report(fd, report,
+                           outputMatches ? "\n\nOutput Matches The Expected Output." : "\n\nOutput Doesn't Match The Expected Output.",
+                           outputMatches ? " | Correct Output\n" : " | Wrong Output\n");
+}
+
+ERROR write_output(int fd, char *buffer)
+{
+    ERROR error = write_all(fd, "\n\nOutput: \n\n");
+
+    if (error)
+    {
+        return error;
+    }
+
+    error = write_all(fd, buffer);
+
+    if (error)
+    {
+        return error;
     }
 
     return SUCCESS;

@@ -1,5 +1,6 @@
 #include "headers/arguments.h"
 #include "headers/compile.h"
+#include "headers/error.h"
 #include "headers/execute.h"
 #include "headers/files.h"
 #include "headers/report.h"
@@ -18,6 +19,7 @@ int main(int argc, char **argv)
 
     if (error)
     {
+        free_array(args);
         return error;
     }
 
@@ -25,10 +27,11 @@ int main(int argc, char **argv)
 
     if (error)
     {
+        free_array(args);
         return error;
     }
 
-    int report = 0;
+    int report = DO_NOT_WRITE;
 
     if (reportFile)
     {
@@ -37,13 +40,15 @@ int main(int argc, char **argv)
         if (report == -1)
         {
             perror("creat failed");
+            free_array(args);
             return CREAT_FAIL;
         }
     }
 
-    if (dup2(fds[0], 0) == -1)
+    if (dup2(fds[0], STDIN_FILENO) == -1)
     {
         perror("dup2 failed");
+        free_array(args);
         close(fds[0]);
         return DUP2_FAIL;
     }
@@ -80,6 +85,7 @@ int main(int argc, char **argv)
 
         if (error)
         {
+            free_array(args);
             return error;
         }
 
@@ -91,13 +97,15 @@ int main(int argc, char **argv)
 
         if (error)
         {
+            free_array(args);
             return error;
         }
 
-        if (dup2(fds[0], 0) == -1)
+        if (dup2(fds[0], STDIN_FILENO) == -1)
         {
             perror("dup2 failed");
             close(fds[0]);
+            free_array(args);
             return DUP2_FAIL;
         }
 
@@ -106,6 +114,7 @@ int main(int argc, char **argv)
         if (fd == -1)
         {
             perror("creat failed");
+            free_array(args);
             return CREAT_FAIL;
         }
 
@@ -120,6 +129,7 @@ int main(int argc, char **argv)
                     continue;
                 }
 
+                free_array(args);
                 return error;
             }
         }
@@ -131,13 +141,15 @@ int main(int argc, char **argv)
         if (error)
         {
             close(fd);
+            free_array(args);
             return error;
         }
 
-        if (dup2(fds[0], 0) == -1)
+        if (dup2(fds[0], STDIN_FILENO) == -1)
         {
             perror("dup2 failed");
             close(fds[0]);
+            free_array(args);
             return DUP2_FAIL;
         }
 
@@ -148,6 +160,7 @@ int main(int argc, char **argv)
         if (error)
         {
             close(fd);
+            free_array(args);
             return error;
         }
 
@@ -156,6 +169,7 @@ int main(int argc, char **argv)
         if (error)
         {
             close(fd);
+            free_array(args);
             return error;
         }
 
@@ -164,7 +178,6 @@ int main(int argc, char **argv)
     }
 
     free_array(args);
-
     close(fds[0]);
     return 0;
 }

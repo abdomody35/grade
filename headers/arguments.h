@@ -7,12 +7,13 @@
 #include "string_array.h"
 
 #define BUFFER_SIZE 4096
-#define MAX_ARG_COUNT 10
+#define MAX_ARG_COUNT 12
 
 extern char *program;
 extern char *inputFile;
 extern char *argFile;
 extern char *reportFile;
+extern char *outputFile;
 extern int EXEC_TIMEOUT;
 
 ERROR parse_arguments(int argc, char **argv, StrArray *args);
